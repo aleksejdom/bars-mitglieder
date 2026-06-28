@@ -62,13 +62,16 @@ export function MemberForm({
   const [selectedSports, setSelectedSports] = useState<string[]>(
     member?.selected_sports || []
   );
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(
+    member?.plan_id || plans[0]?.id || ""
+  );
 
   const totalFee =
     subscriptionType === "individual"
       ? sports
           .filter((s) => selectedSports.includes(s.id))
           .reduce((sum, s) => sum + Number(s.monthly_fee), 0)
-      : plans.find((p) => p.id === member?.plan_id)?.monthly_fee || 0;
+      : Number(plans.find((p) => p.id === selectedPlanId)?.monthly_fee || 0);
 
   function toggleSport(id: string) {
     setSelectedSports((prev) =>
@@ -225,7 +228,10 @@ export function MemberForm({
               </button>
               <button
                 type="button"
-                onClick={() => setSubscriptionType("all_inclusive")}
+                onClick={() => {
+                  setSubscriptionType("all_inclusive");
+                  if (!selectedPlanId && plans[0]) setSelectedPlanId(plans[0].id);
+                }}
                 className={`rounded-lg border-2 p-4 text-left transition-all ${
                   subscriptionType === "all_inclusive"
                     ? "border-primary bg-primary/5"
@@ -288,7 +294,8 @@ export function MemberForm({
               <select
                 id="plan_id"
                 name="plan_id"
-                defaultValue={member?.plan_id || ""}
+                value={selectedPlanId}
+                onChange={(e) => setSelectedPlanId(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">Paket auswählen...</option>
