@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { updateMember, deleteMember } from "@/lib/actions/members";
 import { MemberForm } from "@/components/member-form";
 import { CancelMemberDialog } from "@/components/cancel-member-dialog";
+import { CustomFieldsCard } from "@/components/custom-fields-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default async function MemberDetailPage({
   await requireAuth();
   const { id } = await params;
 
-  const [member, sports, plans, memberSports, invoices] = await Promise.all([
+  const [member, sports, plans, memberSports, invoices, customFields, fieldValues] = await Promise.all([
     queryOne<Member>("SELECT * FROM members WHERE id=$1", [id]),
     query<{ id: string; name: string; monthly_fee: number; color: string }>(
       "SELECT id, name, monthly_fee, color FROM sports WHERE active=true ORDER BY sort_order"
@@ -63,6 +64,13 @@ export default async function MemberDetailPage({
       created_at: string;
     }>(
       "SELECT id, invoice_number, type, amount, status, due_date, created_at FROM invoices WHERE member_id=$1 ORDER BY created_at DESC LIMIT 10",
+      [id]
+    ),
+    query<{ id: string; name: string; label: string; field_type: string; required: boolean; options: string[] | null }>(
+      "SELECT id, name, label, field_type, required, options FROM custom_fields ORDER BY sort_order, label"
+    ),
+    query<{ field_id: string; value: string | null }>(
+      "SELECT field_id, value FROM member_field_values WHERE member_id=$1",
       [id]
     ),
   ]);
@@ -141,12 +149,17 @@ export default async function MemberDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main form */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <MemberForm
             member={{ ...member, selected_sports: selectedSports }}
             sports={sports}
             plans={plans}
             action={updateAction}
+          />
+          <CustomFieldsCard
+            memberId={id}
+            fields={customFields}
+            values={fieldValues}
           />
         </div>
 
