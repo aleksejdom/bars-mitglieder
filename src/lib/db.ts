@@ -1,4 +1,9 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// Return DATE as ISO string (not Date object) to avoid timezone shifts and .slice() errors
+types.setTypeParser(1082, (val: string) => val);
+// Return NUMERIC/DECIMAL as float, not string
+types.setTypeParser(1700, (val: string) => parseFloat(val));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
