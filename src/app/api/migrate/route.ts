@@ -50,6 +50,11 @@ export async function POST(req: NextRequest) {
     `);
     log.push("Default club_settings row ensured");
 
+    await pool.query(`
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    `);
+    log.push("Column photo_url added to members");
+
     return NextResponse.json({ ok: true, log });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { updateMember, deleteMember } from "@/lib/actions/members";
 import { MemberForm } from "@/components/member-form";
 import { CancelMemberDialog } from "@/components/cancel-member-dialog";
+import { MemberPhoto } from "@/components/member-photo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ type Member = {
   plan_id: string | null;
   cancellation_date: string | null;
   billing_period: string;
+  photo_url: string | null;
   iban: string;
   bic: string;
   bank_name: string;
@@ -105,11 +107,11 @@ export default async function MemberDetailPage({
             </Link>
           </Button>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0">
-              <span className="text-primary font-bold text-sm">
-                {member.first_name.charAt(0)}{member.last_name.charAt(0)}
-              </span>
-            </div>
+            <MemberPhoto
+              memberId={member.id}
+              hasPhoto={!!member.photo_url}
+              name={`${member.first_name} ${member.last_name}`}
+            />
             <div>
               <h1 className="text-2xl font-bold">
                 {member.first_name} {member.last_name}
