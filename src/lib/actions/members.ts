@@ -1,0 +1,129 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { query, queryOne } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
+
+async function nextMemberNumber(): Promise<string> {
+  const result = await queryOne<{ member_number: string }>(
+    "SELECT member_number FROM members ORDER BY created_at DESC LIMIT 1"
+  );
+  if (!result) return "M-0001";
+  const num = parseInt(result.member_number.replace("M-", ""), 10);
+  return `M-${String(num + 1).padStart(4, "0")}`;
+}
+
+export async function createMember(formData: FormData) {
+  await requireAuth();
+
+  const subscriptionType = formData.get("subscription_type") as string;
+  const planId = formData.get("plan_id") as string | null;
+  const memberNumber = await nextMemberNumber();
+
+  const [member] = await query<{ id: string }>(
+    `INSERT INTO members (
+      member_number, first_name, last_name, email, phone,
+      date_of_birth, address, city, postal_code,
+      joined_date, status, subscription_type, plan_id,
+      iban, bic, bank_name, notes
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    RETURNING id`,
+    [
+      memberNumber,
+      formData.get("first_name"),
+      formData.get("last_name"),
+      formData.get("email") || null,
+      formData.get("phone") || null,
+      formData.get("date_of_birth") || null,
+      formData.get("address") || null,
+      formData.get("city") || null,
+      formData.get("postal_code") || null,
+      formData.get("joined_date") || new Date().toISOString().slice(0, 10),
+      formData.get("status") || "active",
+      subscriptionType,
+      subscriptionType === "all_inclusive" && planId ? planId : null,
+      formData.get("iban") || null,
+      formData.get("bic") || null,
+      formData.get("bank_name") || null,
+      formData.get("notes") || null,
+    ]
+  );
+
+  // Assign sports for individual subscription
+  if (subscriptionType === "individual") {
+    const sportIds = formData.getAll("sport_ids") as string[];
+    for (const sportId of sportIds) {
+      if (sportId) {
+        await query(
+          "INSERT INTO member_sports (member_id, sport_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          [member.id, sportId]
+        );
+      }
+    }
+  }
+
+  revalidatePath("/members");
+  redirect(`/members/${member.id}`);
+}
+
+export async function updateMember(id: string, formData: FormData) {
+  await requireAuth();
+
+  const subscriptionType = formData.get("subscription_type") as string;
+  const planId = formData.get("plan_id") as string | null;
+
+  await query(
+    `UPDATE members SET
+      first_name=$1, last_name=$2, email=$3, phone=$4,
+      date_of_birth=$5, address=$6, city=$7, postal_code=$8,
+      joined_date=$9, status=$10, subscription_type=$11, plan_id=$12,
+      iban=$13, bic=$14, bank_name=$15, notes=$16,
+      updated_at=NOW()
+    WHERE id=$17`,
+    [
+      formData.get("first_name"),
+      formData.get("last_name"),
+      formData.get("email") || null,
+      formData.get("phone") || null,
+      formData.get("date_of_birth") || null,
+      formData.get("address") || null,
+      formData.get("city") || null,
+      formData.get("postal_code") || null,
+      formData.get("joined_date"),
+      formData.get("status"),
+      subscriptionType,
+      subscriptionType === "all_inclusive" && planId ? planId : null,
+      formData.get("iban") || null,
+      formData.get("bic") || null,
+      formData.get("bank_name") || null,
+      formData.get("notes") || null,
+      id,
+    ]
+  );
+
+  // Update sports assignments
+  await query("DELETE FROM member_sports WHERE member_id = $1", [id]);
+  if (subscriptionType === "individual") {
+    const sportIds = formData.getAll("sport_ids") as string[];
+    for (const sportId of sportIds) {
+      if (sportId) {
+        await query(
+          "INSERT INTO member_sports (member_id, sport_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          [id, sportId]
+        );
+      }
+    }
+  }
+
+  revalidatePath("/members");
+  revalidatePath(`/members/${id}`);
+  redirect(`/members/${id}`);
+}
+
+export async function deleteMember(id: string) {
+  await requireAuth();
+  await query("DELETE FROM members WHERE id = $1", [id]);
+  revalidatePath("/members");
+  redirect("/members");
+}
