@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { CustomFieldsCard } from "@/components/custom-fields-card";
 
 type Sport = {
   id: string;
@@ -44,16 +45,29 @@ type Member = {
   selected_sports?: string[];
 };
 
+type CustomField = {
+  id: string;
+  name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  options: string[] | null;
+};
+
 export function MemberForm({
   member,
   sports,
   plans,
   action,
+  customFields,
+  fieldValues,
 }: {
   member?: Member;
   sports: Sport[];
   plans: Plan[];
   action: (formData: FormData) => Promise<void>;
+  customFields?: CustomField[];
+  fieldValues?: { field_id: string; value: string | null }[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [subscriptionType, setSubscriptionType] = useState(
@@ -369,6 +383,14 @@ export function MemberForm({
           />
         </CardContent>
       </Card>
+
+      {member?.id && customFields && customFields.length > 0 && (
+        <CustomFieldsCard
+          memberId={member.id}
+          fields={customFields}
+          values={fieldValues ?? []}
+        />
+      )}
 
       <div className="flex gap-3">
         <Button type="submit" disabled={isPending}>
