@@ -1,6 +1,6 @@
 import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { updateMember, deleteMember } from "@/lib/actions/members";
+import { updateMember, deleteMember, pauseSubscription, resumeSubscription } from "@/lib/actions/members";
 import { MemberForm } from "@/components/member-form";
 import { CancelMemberDialog } from "@/components/cancel-member-dialog";
 import { MemberPhoto } from "@/components/member-photo";
@@ -30,6 +30,7 @@ type Member = {
   cancellation_date: string | null;
   billing_period: string;
   auto_invoice_enabled: boolean;
+  subscription_paused: boolean;
   photo_url: string | null;
   iban: string;
   bic: string;
@@ -84,6 +85,8 @@ export default async function MemberDetailPage({
 
   const updateAction = updateMember.bind(null, id);
   const deleteAction = deleteMember.bind(null, id);
+  const pauseAction = pauseSubscription.bind(null, id);
+  const resumeAction = resumeSubscription.bind(null, id);
 
   const typeLabel: Record<string, string> = {
     invoice: "Rechnung",
@@ -165,6 +168,8 @@ export default async function MemberDetailPage({
             action={updateAction}
             customFields={customFields}
             fieldValues={fieldValues}
+            pauseAction={pauseAction}
+            resumeAction={resumeAction}
           />
         </div>
 

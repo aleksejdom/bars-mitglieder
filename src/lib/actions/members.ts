@@ -144,11 +144,52 @@ export async function cancelMember(id: string, formData: FormData) {
     `UPDATE members SET
       status = 'cancelled',
       cancellation_date = $1,
+      subscription_paused = true,
+      auto_invoice_enabled = false,
+      subscription_paused_at = NOW(),
       updated_at = NOW()
     WHERE id = $2`,
     [cancellationDate, id]
   );
 
+  revalidatePath("/members");
+  revalidatePath(`/members/${id}`);
+}
+
+export async function pauseSubscription(id: string) {
+  await requireAuth();
+  await query(
+    `UPDATE members SET
+      subscription_paused = true,
+      auto_invoice_enabled = false,
+      subscription_paused_at = NOW(),
+      updated_at = NOW()
+    WHERE id = $1`,
+    [id]
+  );
+  revalidatePath("/members");
+  revalidatePath(`/members/${id}`);
+}
+
+export async function resumeSubscription(id: string) {
+  await requireAuth();
+  const member = await queryOne<{ billing_period: string }>(
+    "SELECT billing_period FROM members WHERE id=$1",
+    [id]
+  );
+  const billingPeriod = member?.billing_period || "monthly";
+  const nextDate = nextInvoiceDate(billingPeriod);
+
+  await query(
+    `UPDATE members SET
+      subscription_paused = false,
+      auto_invoice_enabled = true,
+      subscription_paused_at = NULL,
+      next_invoice_date = $1,
+      updated_at = NOW()
+    WHERE id = $2`,
+    [nextDate, id]
+  );
   revalidatePath("/members");
   revalidatePath(`/members/${id}`);
 }

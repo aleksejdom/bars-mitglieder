@@ -20,6 +20,8 @@ async function ensureSchema(): Promise<void> {
   await run(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS yearly_fee NUMERIC(10,2)`);
   await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS auto_invoice_enabled BOOLEAN NOT NULL DEFAULT true`);
   await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS next_invoice_date DATE`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS subscription_paused BOOLEAN NOT NULL DEFAULT false`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS subscription_paused_at TIMESTAMPTZ`);
   await run(`
     CREATE TABLE IF NOT EXISTS club_settings (
       id SMALLINT PRIMARY KEY DEFAULT 1,

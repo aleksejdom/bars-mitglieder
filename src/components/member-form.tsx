@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Check, PauseCircle, PlayCircle } from "lucide-react";
 import { CustomFieldsCard } from "@/components/custom-fields-card";
 
 type Sport = {
@@ -45,6 +45,7 @@ type Member = {
   selected_sports?: string[];
   billing_period?: string;
   auto_invoice_enabled?: boolean;
+  subscription_paused?: boolean;
 };
 
 type CustomField = {
@@ -63,6 +64,8 @@ export function MemberForm({
   action,
   customFields,
   fieldValues,
+  pauseAction,
+  resumeAction,
 }: {
   member?: Member;
   sports: Sport[];
@@ -70,6 +73,8 @@ export function MemberForm({
   action: (formData: FormData) => Promise<void>;
   customFields?: CustomField[];
   fieldValues?: { field_id: string; value: string | null }[];
+  pauseAction?: () => Promise<void>;
+  resumeAction?: () => Promise<void>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [subscriptionType, setSubscriptionType] = useState(
@@ -399,6 +404,60 @@ export function MemberForm({
               />
             </div>
           </div>
+
+          {/* Subscription pause/resume — only for existing members */}
+          {member?.id && (pauseAction || resumeAction) && (
+            <div
+              className={`rounded-lg border px-4 py-3 flex items-center justify-between gap-4 ${
+                member.subscription_paused
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20"
+                  : "border-destructive/40"
+              }`}
+            >
+              <div>
+                <p className="text-sm font-medium">
+                  {member.subscription_paused ? "Abo ist pausiert" : "Abo pausieren"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {member.subscription_paused
+                    ? "Keine Rechnungen bis das Abo fortgesetzt wird"
+                    : "Stoppt alle zukünftigen Abbuchungen und Rechnungen"}
+                </p>
+              </div>
+              {member.subscription_paused ? (
+                resumeAction && (
+                  <form action={resumeAction}>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-1.5 text-sm font-medium text-green-700 border border-green-600 rounded-md px-3 py-1.5 hover:bg-green-50 transition-colors whitespace-nowrap"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      Abo fortsetzen
+                    </button>
+                  </form>
+                )
+              ) : (
+                pauseAction && (
+                  <form
+                    action={pauseAction}
+                    onSubmit={(e) => {
+                      if (!confirm("Abo wirklich stoppen? Alle zukünftigen Rechnungen werden pausiert.")) {
+                        e.preventDefault();
+                      }
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      className="flex items-center gap-1.5 text-sm font-medium text-destructive border border-destructive/60 rounded-md px-3 py-1.5 hover:bg-destructive/5 transition-colors whitespace-nowrap"
+                    >
+                      <PauseCircle className="w-4 h-4" />
+                      Abo stoppen
+                    </button>
+                  </form>
+                )
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
