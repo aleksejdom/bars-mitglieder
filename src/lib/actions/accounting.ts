@@ -81,7 +81,7 @@ export async function deleteInvoice(id: string, _formData?: FormData) {
   revalidatePath("/accounting/invoices");
 }
 
-export async function generateDueInvoices(_?: FormData): Promise<{ created: number; skipped: number }> {
+export async function generateDueInvoices(_?: FormData): Promise<void> {
   await requireAuth();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -177,7 +177,7 @@ export async function generateDueInvoices(_?: FormData): Promise<{ created: numb
   }
 
   revalidatePath("/accounting/invoices");
-  return { created, skipped };
+  console.log(`[auto-invoice] created=${created} skipped=${skipped}`);
 }
 
 export async function generateMonthlyInvoices(formData: FormData): Promise<void> {
