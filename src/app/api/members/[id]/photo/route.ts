@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { minioClient, BUCKET, memberPhotoKey } from "@/lib/minio";
+import { minioClient, BUCKET, memberPhotoKey, isMinioConfigured } from "@/lib/minio";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -13,6 +13,10 @@ export async function GET(
   try {
     const session = await getSession();
     if (!session) return new NextResponse("Unauthorized", { status: 401 });
+
+    if (!isMinioConfigured()) {
+      return new NextResponse(null, { status: 404 });
+    }
 
     const { id } = await params;
     const key = memberPhotoKey(id);
@@ -46,11 +50,18 @@ export async function POST(
     const session = await getSession();
     if (!session) return new NextResponse("Unauthorized", { status: 401 });
 
+    if (!isMinioConfigured()) {
+      return NextResponse.json(
+        { error: "Foto-Upload nicht verfügbar. Bitte MINIO_SECRET_KEY in den Umgebungsvariablen setzen." },
+        { status: 503 }
+      );
+    }
+
     const { id } = await params;
 
     const formData = await req.formData();
     const file = formData.get("photo") as File | null;
-    if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
+    if (!file) return NextResponse.json({ error: "Keine Datei ausgewählt" }, { status: 400 });
 
     if (!ALLOWED.includes(file.type)) {
       return NextResponse.json(
@@ -80,9 +91,11 @@ export async function POST(
 
     return NextResponse.json({ ok: true, url: photoUrl });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Upload fehlgeschlagen";
-    console.error("[photo POST]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[photo POST]", err);
+    return NextResponse.json(
+      { error: "Foto konnte nicht hochgeladen werden" },
+      { status: 500 }
+    );
   }
 }
 
@@ -96,10 +109,12 @@ export async function DELETE(
 
     const { id } = await params;
 
-    try {
-      await minioClient.removeObject(BUCKET, memberPhotoKey(id));
-    } catch {
-      // object may not exist — continue to clear DB
+    if (isMinioConfigured()) {
+      try {
+        await minioClient.removeObject(BUCKET, memberPhotoKey(id));
+      } catch {
+        // object may not exist — continue to clear DB
+      }
     }
 
     await query(
