@@ -2,11 +2,12 @@ import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { updateMember, deleteMember } from "@/lib/actions/members";
 import { MemberForm } from "@/components/member-form";
+import { CancelMemberDialog } from "@/components/cancel-member-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, User, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -25,6 +26,7 @@ type Member = {
   status: string;
   subscription_type: string;
   plan_id: string | null;
+  cancellation_date: string | null;
   iban: string;
   bic: string;
   bank_name: string;
@@ -104,18 +106,37 @@ export default async function MemberDetailPage({
               <h1 className="text-2xl font-bold">
                 {member.first_name} {member.last_name}
               </h1>
-              <p className="text-muted-foreground text-sm font-mono">
-                {member.member_number}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-muted-foreground text-sm font-mono">
+                  {member.member_number}
+                </p>
+                {member.status === "cancelled" && (
+                  <Badge variant="destructive" className="text-xs">
+                    Gekündigt
+                    {member.cancellation_date && (
+                      <> zum {formatDate(member.cancellation_date)}</>
+                    )}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
-        <form action={deleteAction}>
-          <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive hover:text-destructive-foreground">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Löschen
-          </Button>
-        </form>
+        <div className="flex items-center gap-2">
+          <CancelMemberDialog
+            memberId={member.id}
+            memberName={`${member.first_name} ${member.last_name}`}
+            memberNumber={member.member_number}
+            currentStatus={member.status}
+            cancellationDate={member.cancellation_date}
+          />
+          <form action={deleteAction}>
+            <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive hover:text-destructive-foreground">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Löschen
+            </Button>
+          </form>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

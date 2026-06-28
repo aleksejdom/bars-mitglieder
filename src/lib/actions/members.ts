@@ -50,7 +50,6 @@ export async function createMember(formData: FormData) {
     ]
   );
 
-  // Assign sports for individual subscription
   if (subscriptionType === "individual") {
     const sportIds = formData.getAll("sport_ids") as string[];
     for (const sportId of sportIds) {
@@ -102,7 +101,6 @@ export async function updateMember(id: string, formData: FormData) {
     ]
   );
 
-  // Update sports assignments
   await query("DELETE FROM member_sports WHERE member_id = $1", [id]);
   if (subscriptionType === "individual") {
     const sportIds = formData.getAll("sport_ids") as string[];
@@ -119,6 +117,23 @@ export async function updateMember(id: string, formData: FormData) {
   revalidatePath("/members");
   revalidatePath(`/members/${id}`);
   redirect(`/members/${id}`);
+}
+
+export async function cancelMember(id: string, formData: FormData) {
+  await requireAuth();
+  const cancellationDate = formData.get("cancellation_date") as string;
+
+  await query(
+    `UPDATE members SET
+      status = 'cancelled',
+      cancellation_date = $1,
+      updated_at = NOW()
+    WHERE id = $2`,
+    [cancellationDate, id]
+  );
+
+  revalidatePath("/members");
+  revalidatePath(`/members/${id}`);
 }
 
 export async function deleteMember(id: string) {
