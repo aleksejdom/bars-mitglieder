@@ -11,10 +11,40 @@ const pool = new Pool({
 
 export { pool };
 
+async function ensureSchema(): Promise<void> {
+  const run = (sql: string) => pool.query(sql);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS cancellation_date DATE`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS billing_period TEXT NOT NULL DEFAULT 'monthly'`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS photo_url TEXT`);
+  await run(`ALTER TABLE sports ADD COLUMN IF NOT EXISTS yearly_fee NUMERIC(10,2)`);
+  await run(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS yearly_fee NUMERIC(10,2)`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS auto_invoice_enabled BOOLEAN NOT NULL DEFAULT true`);
+  await run(`ALTER TABLE members ADD COLUMN IF NOT EXISTS next_invoice_date DATE`);
+  await run(`
+    CREATE TABLE IF NOT EXISTS club_settings (
+      id SMALLINT PRIMARY KEY DEFAULT 1,
+      club_name TEXT NOT NULL DEFAULT 'Mein Verein',
+      address TEXT, postal_code TEXT, city TEXT,
+      phone TEXT, email TEXT, website TEXT,
+      iban TEXT, bic TEXT, bank_name TEXT,
+      tax_number TEXT, register_number TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      CONSTRAINT single_row CHECK (id = 1)
+    )
+  `);
+  await run(`INSERT INTO club_settings (id) VALUES (1) ON CONFLICT DO NOTHING`);
+}
+
+// Run once on startup; all query functions await this before executing
+const schemaReady: Promise<void> = ensureSchema().catch((err) => {
+  console.error("[db] Schema init error:", err);
+});
+
 export async function query<T = Record<string, unknown>>(
   text: string,
   params?: unknown[]
 ): Promise<T[]> {
+  await schemaReady;
   const res = await pool.query(text, params);
   return res.rows as T[];
 }

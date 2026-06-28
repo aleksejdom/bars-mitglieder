@@ -44,6 +44,7 @@ type Member = {
   notes?: string;
   selected_sports?: string[];
   billing_period?: string;
+  auto_invoice_enabled?: boolean;
 };
 
 type CustomField = {
@@ -82,6 +83,9 @@ export function MemberForm({
   );
   const [billingPeriod, setBillingPeriod] = useState(
     member?.billing_period || "monthly"
+  );
+  const [autoInvoice, setAutoInvoice] = useState(
+    member?.auto_invoice_enabled !== false
   );
 
   const totalFee =
@@ -359,12 +363,42 @@ export function MemberForm({
 
           {(selectedSports.length > 0 || subscriptionType === "all_inclusive") && (
             <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
-              <span className="text-sm font-medium">Monatlicher Beitrag</span>
+              <span className="text-sm font-medium">
+                {billingPeriod === "yearly" ? "Jährlicher Beitrag" : "Monatlicher Beitrag"}
+              </span>
               <span className="text-lg font-bold text-primary">
-                {totalFee.toFixed(2)} €
+                {billingPeriod === "yearly"
+                  ? (totalFee * 12).toFixed(2)
+                  : totalFee.toFixed(2)}{" "}
+                €
               </span>
             </div>
           )}
+
+          {/* Auto invoice toggle */}
+          <input type="hidden" name="auto_invoice_enabled" value={autoInvoice ? "true" : "false"} />
+          <div
+            className="flex items-center justify-between rounded-lg border border-border px-4 py-3 cursor-pointer"
+            onClick={() => setAutoInvoice((v) => !v)}
+          >
+            <div>
+              <p className="text-sm font-medium">Automatische Rechnungserstellung</p>
+              <p className="text-xs text-muted-foreground">
+                Rechnung wird automatisch {billingPeriod === "yearly" ? "jährlich" : "monatlich"} erstellt
+              </p>
+            </div>
+            <div
+              className={`w-10 h-6 rounded-full transition-colors flex items-center ${
+                autoInvoice ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white mx-1 transition-transform ${
+                  autoInvoice ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -29,14 +29,19 @@ export function MemberPhoto({
   async function handleFile(file: File) {
     setLoading(true);
     setError(null);
-    const fd = new FormData();
-    fd.append("photo", file);
-    const res = await fetch(`/api/members/${memberId}/photo`, { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Fehler beim Hochladen");
-    } else {
-      setPhoto(`/api/members/${memberId}/photo?t=${Date.now()}`);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      const res = await fetch(`/api/members/${memberId}/photo`, { method: "POST", body: fd });
+      let data: { error?: string; ok?: boolean } = {};
+      try { data = await res.json(); } catch { /* empty body */ }
+      if (!res.ok) {
+        setError(data.error || "Fehler beim Hochladen");
+      } else {
+        setPhoto(`/api/members/${memberId}/photo?t=${Date.now()}`);
+      }
+    } catch {
+      setError("Verbindungsfehler beim Hochladen");
     }
     setLoading(false);
   }
@@ -60,7 +65,12 @@ export function MemberPhoto({
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           ) : photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt={name} className="w-full h-full object-cover" />
+            <img
+              src={photo}
+              alt={name}
+              className="w-full h-full object-cover"
+              onError={() => setPhoto(null)}
+            />
           ) : (
             <span className="text-primary font-bold text-2xl">{initials}</span>
           )}

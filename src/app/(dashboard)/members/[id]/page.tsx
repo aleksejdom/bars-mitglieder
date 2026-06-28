@@ -29,6 +29,7 @@ type Member = {
   plan_id: string | null;
   cancellation_date: string | null;
   billing_period: string;
+  auto_invoice_enabled: boolean;
   photo_url: string | null;
   iban: string;
   bic: string;

@@ -9,8 +9,9 @@ import {
   markInvoiceOverdue,
   deleteInvoice,
   createInvoice,
+  generateDueInvoices,
 } from "@/lib/actions/accounting";
-import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download } from "lucide-react";
+import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download, RefreshCw } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -42,10 +43,11 @@ const statusInfo: Record<string, { label: string; variant: "success" | "warning"
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string; member?: string }>;
+  searchParams: Promise<{ status?: string; type?: string; member?: string; q?: string }>;
 }) {
   await requireAuth();
   const params = await searchParams;
+  const q = params.q?.trim() || "";
 
   const invoices = await query<Invoice>(`
     SELECT i.id, i.invoice_number, i.type, i.member_id,
@@ -56,9 +58,17 @@ export default async function InvoicesPage({
       ($1 = '' OR i.status=$1)
       AND ($2 = '' OR i.type=$2)
       AND ($3 = '' OR i.member_id=$3::uuid)
+      AND ($4 = '' OR (
+        i.invoice_number ILIKE $4
+        OR m.first_name ILIKE $4
+        OR m.last_name ILIKE $4
+        OR (m.first_name || ' ' || m.last_name) ILIKE $4
+        OR i.due_date::text ILIKE $4
+        OR i.created_at::text ILIKE $4
+      ))
     ORDER BY i.created_at DESC
     LIMIT 100
-  `, [params.status || "", params.type || "", params.member || ""]);
+  `, [params.status || "", params.type || "", params.member || "", q ? `%${q}%` : ""]);
 
   const members = await query<{ id: string; first_name: string; last_name: string }>(
     "SELECT id, first_name, last_name FROM members WHERE status='active' ORDER BY last_name"
@@ -74,6 +84,14 @@ export default async function InvoicesPage({
           <div>
             <h1 className="text-2xl font-bold">Rechnungen & Mahnungen</h1>
             <p className="text-muted-foreground text-sm">{invoices.length} Einträge</p>
+          </div>
+        </div>
+        <form action={generateDueInvoices}>
+          <Button type="submit" variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Fällige Rechnungen erstellen
+          </Button>
+        </form>
           </div>
         </div>
       </div>
@@ -160,8 +178,14 @@ export default async function InvoicesPage({
         </CardContent>
       </Card>
 
-      {/* Filters */}
-      <form method="GET" className="flex gap-3 flex-wrap">
+      {/* Filters + Search */}
+      <form method="GET" className="flex gap-3 flex-wrap items-center">
+        <input
+          name="q"
+          defaultValue={params.q || ""}
+          placeholder="Suche: Nr., Mitglied, Datum…"
+          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-w-[220px]"
+        />
         <select
           name="status"
           defaultValue={params.status || ""}
@@ -182,7 +206,12 @@ export default async function InvoicesPage({
           <option value="reminder">Mahnungen</option>
           <option value="final_reminder">Letzte Mahnung</option>
         </select>
-        <Button type="submit" variant="secondary" size="sm">Filtern</Button>
+        <Button type="submit" variant="secondary" size="sm">Suchen</Button>
+        {(params.q || params.status || params.type) && (
+          <a href="/accounting/invoices" className="text-xs text-muted-foreground hover:underline">
+            Zurücksetzen
+          </a>
+        )}
       </form>
 
       {/* Table */}

@@ -6,13 +6,15 @@ import { requireAuth } from "@/lib/auth";
 
 export async function createSport(formData: FormData) {
   await requireAuth();
+  const yearlyFeeStr = formData.get("yearly_fee") as string;
   await query(
-    `INSERT INTO sports (name, description, monthly_fee, color, sort_order)
-     VALUES ($1,$2,$3,$4,$5)`,
+    `INSERT INTO sports (name, description, monthly_fee, yearly_fee, color, sort_order)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
     [
       formData.get("name"),
       formData.get("description") || null,
       parseFloat(formData.get("monthly_fee") as string) || 0,
+      yearlyFeeStr ? parseFloat(yearlyFeeStr) : null,
       formData.get("color") || "#dc2626",
       parseInt(formData.get("sort_order") as string) || 0,
     ]
@@ -22,13 +24,15 @@ export async function createSport(formData: FormData) {
 
 export async function updateSport(id: string, formData: FormData) {
   await requireAuth();
+  const yearlyFeeStr = formData.get("yearly_fee") as string;
   await query(
-    `UPDATE sports SET name=$1, description=$2, monthly_fee=$3, color=$4, sort_order=$5, active=$6
-     WHERE id=$7`,
+    `UPDATE sports SET name=$1, description=$2, monthly_fee=$3, yearly_fee=$4, color=$5, sort_order=$6, active=$7
+     WHERE id=$8`,
     [
       formData.get("name"),
       formData.get("description") || null,
       parseFloat(formData.get("monthly_fee") as string) || 0,
+      yearlyFeeStr ? parseFloat(yearlyFeeStr) : null,
       formData.get("color") || "#dc2626",
       parseInt(formData.get("sort_order") as string) || 0,
       formData.get("active") === "true",
@@ -46,13 +50,15 @@ export async function deleteSport(id: string) {
 
 export async function createPlan(formData: FormData) {
   await requireAuth();
+  const yearlyFeeStr = formData.get("yearly_fee") as string;
   await query(
-    `INSERT INTO subscription_plans (name, description, monthly_fee, includes_all_sports)
-     VALUES ($1,$2,$3,$4)`,
+    `INSERT INTO subscription_plans (name, description, monthly_fee, yearly_fee, includes_all_sports)
+     VALUES ($1,$2,$3,$4,$5)`,
     [
       formData.get("name"),
       formData.get("description") || null,
       parseFloat(formData.get("monthly_fee") as string) || 0,
+      yearlyFeeStr ? parseFloat(yearlyFeeStr) : null,
       true,
     ]
   );
@@ -61,13 +67,15 @@ export async function createPlan(formData: FormData) {
 
 export async function updatePlan(id: string, formData: FormData) {
   await requireAuth();
+  const yearlyFeeStr = formData.get("yearly_fee") as string;
   await query(
-    `UPDATE subscription_plans SET name=$1, description=$2, monthly_fee=$3, active=$4
-     WHERE id=$5`,
+    `UPDATE subscription_plans SET name=$1, description=$2, monthly_fee=$3, yearly_fee=$4, active=$5
+     WHERE id=$6`,
     [
       formData.get("name"),
       formData.get("description") || null,
       parseFloat(formData.get("monthly_fee") as string) || 0,
+      yearlyFeeStr ? parseFloat(yearlyFeeStr) : null,
       formData.get("active") === "true",
       id,
     ]

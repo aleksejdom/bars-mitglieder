@@ -44,16 +44,17 @@ function money(val: number | string): string {
 
 export async function GET(
   _req: NextRequest,
-  ctx: RouteContext<"/api/invoices/[id]/pdf">
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession();
   if (!session) return new NextResponse("Unauthorized", { status: 401 });
 
-  const { id } = await ctx.params;
+  const { id } = await params;
 
   const inv = await queryOne<InvoiceRow>(
     `SELECT i.*, m.first_name, m.last_name, m.email, m.address, m.city,
-            m.postal_code, m.member_number, m.billing_period
+            m.postal_code, m.member_number,
+            COALESCE(m.billing_period, 'monthly') as billing_period
      FROM invoices i JOIN members m ON i.member_id=m.id
      WHERE i.id=$1`,
     [id]

@@ -15,24 +15,28 @@ export type ClubSettings = {
   register_number: string;
 };
 
+const defaults: ClubSettings = {
+  club_name: "BoxClub",
+  address: "",
+  postal_code: "",
+  city: "",
+  phone: "",
+  email: "",
+  website: "",
+  iban: "",
+  bic: "",
+  bank_name: "",
+  tax_number: "",
+  register_number: "",
+};
+
 export async function getClubSettings(): Promise<ClubSettings> {
-  const settings = await queryOne<ClubSettings>(
-    "SELECT * FROM club_settings WHERE id=1"
-  );
-  return (
-    settings ?? {
-      club_name: "BoxClub",
-      address: "",
-      postal_code: "",
-      city: "",
-      phone: "",
-      email: "",
-      website: "",
-      iban: "",
-      bic: "",
-      bank_name: "",
-      tax_number: "",
-      register_number: "",
-    }
-  );
+  try {
+    const settings = await queryOne<ClubSettings>(
+      "SELECT * FROM club_settings WHERE id=1"
+    );
+    return settings ?? defaults;
+  } catch {
+    return defaults;
+  }
 }
