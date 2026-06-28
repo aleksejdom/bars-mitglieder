@@ -43,6 +43,7 @@ type Member = {
   bank_name?: string;
   notes?: string;
   selected_sports?: string[];
+  billing_period?: string;
 };
 
 type CustomField = {
@@ -78,6 +79,9 @@ export function MemberForm({
   );
   const [selectedPlanId, setSelectedPlanId] = useState<string>(
     member?.plan_id || plans[0]?.id || ""
+  );
+  const [billingPeriod, setBillingPeriod] = useState(
+    member?.billing_period || "monthly"
   );
 
   const totalFee =
@@ -256,6 +260,37 @@ export function MemberForm({
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Alle Sportarten inklusive
                 </p>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Zahlungsweise</Label>
+            <input type="hidden" name="billing_period" value={billingPeriod} />
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setBillingPeriod("monthly")}
+                className={`rounded-lg border-2 p-4 text-left transition-all ${
+                  billingPeriod === "monthly"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <p className="font-medium text-sm">Monatsbeitrag</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Monatliche Zahlung</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingPeriod("yearly")}
+                className={`rounded-lg border-2 p-4 text-left transition-all ${
+                  billingPeriod === "yearly"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <p className="font-medium text-sm">Jahresbeitrag</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Jährliche Zahlung</p>
               </button>
             </div>
           </div>

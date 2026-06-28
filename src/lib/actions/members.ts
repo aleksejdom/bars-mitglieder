@@ -26,8 +26,8 @@ export async function createMember(formData: FormData) {
       member_number, first_name, last_name, email, phone,
       date_of_birth, address, city, postal_code,
       joined_date, status, subscription_type, plan_id,
-      iban, bic, bank_name, notes
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      iban, bic, bank_name, notes, billing_period
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     RETURNING id`,
     [
       memberNumber,
@@ -47,6 +47,7 @@ export async function createMember(formData: FormData) {
       formData.get("bic") || null,
       formData.get("bank_name") || null,
       formData.get("notes") || null,
+      formData.get("billing_period") || "monthly",
     ]
   );
 
@@ -78,8 +79,8 @@ export async function updateMember(id: string, formData: FormData) {
       date_of_birth=$5, address=$6, city=$7, postal_code=$8,
       joined_date=$9, status=$10, subscription_type=$11, plan_id=$12,
       iban=$13, bic=$14, bank_name=$15, notes=$16,
-      updated_at=NOW()
-    WHERE id=$17`,
+      billing_period=$17, updated_at=NOW()
+    WHERE id=$18`,
     [
       formData.get("first_name"),
       formData.get("last_name"),
@@ -97,6 +98,7 @@ export async function updateMember(id: string, formData: FormData) {
       formData.get("bic") || null,
       formData.get("bank_name") || null,
       formData.get("notes") || null,
+      formData.get("billing_period") || "monthly",
       id,
     ]
   );

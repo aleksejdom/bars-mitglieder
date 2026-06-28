@@ -10,7 +10,7 @@ import {
   deleteInvoice,
   createInvoice,
 } from "@/lib/actions/accounting";
-import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send } from "lucide-react";
+import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -275,6 +275,15 @@ export default async function InvoicesPage({
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </form>
+                          <a
+                            href={`/api/invoices/${inv.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="PDF herunterladen"
+                            className="p-1.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors inline-flex"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
                         </div>
                       </td>
                     </tr>

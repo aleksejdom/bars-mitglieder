@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getClubSettings } from "@/lib/club-settings";
 
 type Member = {
   id: string;
@@ -32,20 +33,20 @@ export async function GET(
 
   const { id } = await ctx.params;
 
-  const member = await queryOne<Member>(
-    "SELECT * FROM members WHERE id = $1",
-    [id]
-  );
+  const [member, sports, club] = await Promise.all([
+    queryOne<Member>("SELECT * FROM members WHERE id = $1", [id]),
+    query<Sport>(
+      `SELECT s.name FROM sports s
+       JOIN member_sports ms ON ms.sport_id = s.id
+       WHERE ms.member_id = $1`,
+      [id]
+    ),
+    getClubSettings(),
+  ]);
+
   if (!member) return new NextResponse("Not found", { status: 404 });
 
-  const sports = await query<Sport>(
-    `SELECT s.name FROM sports s
-     JOIN member_sports ms ON ms.sport_id = s.id
-     WHERE ms.member_id = $1`,
-    [id]
-  );
-
-  const today = formatDate(new Date().toISOString());
+  const today = formatDate(new Date().toISOString().slice(0, 10));
   const cancellationDate = formatDate(member.cancellation_date);
   const joinedDate = formatDate(member.joined_date);
   const sportsList = sports.map((s) => s.name).join(", ") || "—";
@@ -60,6 +61,7 @@ export async function GET(
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 48px; }
   .club-name { font-size: 22pt; font-weight: bold; color: #dc2626; }
   .club-sub { font-size: 10pt; color: #64748b; margin-top: 2px; }
+  .club-contact { font-size: 9pt; color: #64748b; margin-top: 6px; line-height: 1.6; }
   .date-block { text-align: right; font-size: 10pt; color: #64748b; }
   .recipient { margin-bottom: 40px; }
   .recipient p { line-height: 1.8; }
@@ -78,8 +80,12 @@ export async function GET(
 
 <div class="header">
   <div>
-    <div class="club-name">BoxClub</div>
-    <div class="club-sub">Vereinsverwaltung</div>
+    <div class="club-name">${club.club_name}</div>
+    ${club.address ? `<div class="club-sub">${club.address}${club.postal_code || club.city ? `, ${[club.postal_code, club.city].filter(Boolean).join(" ")}` : ""}</div>` : ""}
+    <div class="club-contact">
+      ${club.phone ? `Tel: ${club.phone}<br>` : ""}
+      ${club.email ? `E-Mail: ${club.email}` : ""}
+    </div>
   </div>
   <div class="date-block">
     <div>${today}</div>
@@ -100,7 +106,7 @@ export async function GET(
   <br>
   <p>hiermit bestätigen wir den Eingang Ihrer Kündigung und verarbeiten diese ordnungsgemäß.</p>
   <br>
-  <p>Ihre Mitgliedschaft beim BoxClub wird zum unten aufgeführten Datum beendet.
+  <p>Ihre Mitgliedschaft beim ${club.club_name} wird zum unten aufgeführten Datum beendet.
   Bis zu diesem Zeitpunkt stehen Ihnen alle vereinbarten Leistungen weiterhin zur Verfügung.</p>
 </div>
 
@@ -123,11 +129,11 @@ export async function GET(
 </div>
 
 <div class="signature">
-  <div class="sig-line">BoxClub — Vereinsleitung</div>
+  <div class="sig-line">${club.club_name} — Vereinsleitung</div>
 </div>
 
 <div class="footer">
-  <span>BoxClub Vereinsverwaltung</span>
+  <span>${club.club_name}</span>
   <span>Dieses Dokument wurde automatisch erstellt am ${today}</span>
 </div>
 

@@ -43,6 +43,7 @@ const navItems = [
     children: [
       { title: "Sportarten", href: "/settings/sports" },
       { title: "Felder", href: "/settings/fields" },
+      { title: "Vereinsdaten", href: "/settings/club" },
     ],
   },
 ];

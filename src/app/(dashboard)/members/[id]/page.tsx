@@ -27,6 +27,7 @@ type Member = {
   subscription_type: string;
   plan_id: string | null;
   cancellation_date: string | null;
+  billing_period: string;
   iban: string;
   bic: string;
   bank_name: string;
@@ -130,6 +131,11 @@ export default async function MemberDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/api/members/${member.id}/contract`} target="_blank" rel="noopener noreferrer">
+              <FileText className="w-4 h-4 mr-2" />Vertrag
+            </a>
+          </Button>
           <CancelMemberDialog
             memberId={member.id}
             memberName={`${member.first_name} ${member.last_name}`}
