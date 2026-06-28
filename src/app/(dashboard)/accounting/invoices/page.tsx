@@ -92,8 +92,6 @@ export default async function InvoicesPage({
             Fällige Rechnungen erstellen
           </Button>
         </form>
-          </div>
-        </div>
       </div>
 
       {/* New Invoice Form */}
