@@ -108,6 +108,7 @@ export async function markInvoiceOverdue(id: string, _formData?: FormData) {
 
 export async function deleteInvoice(id: string, _formData?: FormData) {
   await requireAuth();
+  await query("DELETE FROM payments WHERE invoice_id=$1", [id]);
   await query("DELETE FROM invoices WHERE id=$1", [id]);
   revalidatePath("/accounting");
   revalidatePath("/accounting/invoices");

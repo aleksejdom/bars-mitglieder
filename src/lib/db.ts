@@ -37,6 +37,20 @@ async function ensureSchema(): Promise<void> {
   await run(`INSERT INTO club_settings (id) VALUES (1) ON CONFLICT DO NOTHING`);
   await run(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS parent_invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL`);
   await run(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ`);
+  // Ensure payments cascade on invoice delete (re-create constraint idempotently)
+  await run(`
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'payments_invoice_id_fkey' AND table_name = 'payments'
+      ) THEN
+        ALTER TABLE payments DROP CONSTRAINT payments_invoice_id_fkey;
+      END IF;
+      ALTER TABLE payments
+        ADD CONSTRAINT payments_invoice_id_fkey
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE;
+    END $$
+  `);
 }
 
 // Run once on startup; all query functions await this before executing
