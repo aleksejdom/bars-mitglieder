@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { Plus, Users, Search } from "lucide-react";
 import Link from "next/link";
+import { MemberListAvatar } from "@/components/member-list-avatar";
 
 type Member = {
   id: string;
@@ -19,6 +20,7 @@ type Member = {
   subscription_type: string;
   plan_name: string | null;
   sports: string | null;
+  photo_url: string | null;
 };
 
 export default async function MembersPage({
@@ -35,7 +37,7 @@ export default async function MembersPage({
   const members = await query<Member>(`
     SELECT
       m.id, m.member_number, m.first_name, m.last_name, m.email, m.phone,
-      m.status, m.joined_date, m.subscription_type,
+      m.status, m.joined_date, m.subscription_type, m.photo_url,
       sp.name as plan_name,
       STRING_AGG(DISTINCT s.name, ', ' ORDER BY s.name) as sports
     FROM members m
@@ -47,7 +49,7 @@ export default async function MembersPage({
       AND ($2 = '' OR m.status=$2)
       AND ($3 = '' OR s.name ILIKE $3)
     GROUP BY m.id, m.member_number, m.first_name, m.last_name, m.email, m.phone,
-             m.status, m.joined_date, m.subscription_type, sp.name
+             m.status, m.joined_date, m.subscription_type, m.photo_url, sp.name
     ORDER BY m.last_name, m.first_name
   `, [`%${q}%`, status, sportFilter ? `%${sportFilter}%` : ""],
   );
@@ -154,9 +156,15 @@ export default async function MembersPage({
                     <td className="px-6 py-3">
                       <Link
                         href={`/members/${m.id}`}
-                        className="font-medium hover:text-primary transition-colors"
+                        className="flex items-center gap-3 hover:text-primary transition-colors group"
                       >
-                        {m.first_name} {m.last_name}
+                        <MemberListAvatar
+                          memberId={m.id}
+                          firstName={m.first_name}
+                          lastName={m.last_name}
+                          hasPhoto={!!m.photo_url}
+                        />
+                        <span className="font-medium">{m.first_name} {m.last_name}</span>
                       </Link>
                     </td>
                     <td className="px-6 py-3 text-muted-foreground">

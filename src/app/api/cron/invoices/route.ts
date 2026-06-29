@@ -3,8 +3,39 @@ import { pool } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+async function processExpiredCancellations(today: string) {
+  const { rows: expired } = await pool.query<{ id: string }>(
+    `SELECT id FROM members
+     WHERE status = 'cancelled'
+       AND cancellation_date <= $1
+       AND subscription_paused = false`,
+    [today]
+  );
+
+  for (const { id } of expired) {
+    await pool.query(
+      `UPDATE members SET
+        plan_id = NULL,
+        iban = NULL,
+        bic = NULL,
+        bank_name = NULL,
+        auto_invoice_enabled = false,
+        subscription_paused = true,
+        subscription_paused_at = NOW(),
+        next_invoice_date = NULL,
+        updated_at = NOW()
+      WHERE id = $1`,
+      [id]
+    );
+  }
+
+  return expired.length;
+}
+
 async function runInvoiceGeneration() {
   const today = new Date().toISOString().slice(0, 10);
+
+  await processExpiredCancellations(today);
 
   const { rows: dueMembers } = await pool.query<{
     id: string;

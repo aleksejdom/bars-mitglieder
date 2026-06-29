@@ -84,8 +84,9 @@ export function CancelMemberDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Der Mitgliedsstatus wird auf &quot;Gekündigt&quot; gesetzt. Das Mitglied
-                hat bis zu diesem Datum Zugang zu allen Leistungen.
+                Das Abo läuft bis zu diesem Datum weiter. Danach werden
+                Abo-Modell, Bankdaten und automatische Rechnungserstellung
+                automatisch deaktiviert.
               </p>
             </div>
 

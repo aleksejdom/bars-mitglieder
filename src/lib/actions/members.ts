@@ -148,9 +148,6 @@ export async function cancelMember(id: string, formData: FormData) {
     `UPDATE members SET
       status = 'cancelled',
       cancellation_date = $1,
-      subscription_paused = true,
-      auto_invoice_enabled = false,
-      subscription_paused_at = NOW(),
       updated_at = NOW()
     WHERE id = $2`,
     [cancellationDate, id]

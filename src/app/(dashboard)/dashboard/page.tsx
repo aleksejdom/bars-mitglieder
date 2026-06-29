@@ -22,7 +22,7 @@ export default async function DashboardPage() {
         SELECT
           (SELECT COUNT(*) FROM members) as total_members,
           (SELECT COUNT(*) FROM members WHERE status='active') as active_members,
-          (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status='paid'
+          (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status='paid' AND type='invoice'
            AND DATE_TRUNC('month', paid_date) = DATE_TRUNC('month', NOW())) as monthly_revenue,
           (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status='pending') as pending_amount,
           (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status='overdue') as overdue_amount
