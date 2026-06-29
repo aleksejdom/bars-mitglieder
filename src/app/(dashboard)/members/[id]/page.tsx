@@ -1,6 +1,6 @@
 import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { updateMember, deleteMember, pauseSubscription, resumeSubscription } from "@/lib/actions/members";
+import { updateMember, deleteMember, pauseSubscription, resumeSubscription, revokeCancellation } from "@/lib/actions/members";
 import { MemberForm } from "@/components/member-form";
 import { CancelMemberDialog } from "@/components/cancel-member-dialog";
 import { MemberPhoto } from "@/components/member-photo";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Trash2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -87,6 +87,7 @@ export default async function MemberDetailPage({
   const deleteAction = deleteMember.bind(null, id);
   const pauseAction = pauseSubscription.bind(null, id);
   const resumeAction = resumeSubscription.bind(null, id);
+  const revokeAction = revokeCancellation.bind(null, id);
 
   const typeLabel: Record<string, string> = {
     invoice: "Rechnung",
@@ -103,52 +104,84 @@ export default async function MemberDetailPage({
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Left: back + identity */}
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" asChild className="mt-1 shrink-0">
             <Link href="/members">
               <ArrowLeft className="w-4 h-4" />
             </Link>
           </Button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <MemberPhoto
               memberId={member.id}
               hasPhoto={!!member.photo_url}
               name={`${member.first_name} ${member.last_name}`}
             />
-            <div>
-              <h1 className="text-2xl font-bold">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold leading-tight">
                 {member.first_name} {member.last_name}
               </h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-muted-foreground text-sm font-mono">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-muted-foreground text-sm font-mono bg-muted px-2 py-0.5 rounded">
                   {member.member_number}
-                </p>
+                </span>
                 {member.status === "cancelled" && (
-                  <Badge variant="destructive" className="text-xs">
+                  <Badge variant="outline" className="text-xs border-orange-300 text-orange-600 bg-orange-50">
                     Gekündigt
                     {member.cancellation_date && (
                       <> zum {formatDate(member.cancellation_date)}</>
                     )}
                   </Badge>
                 )}
+                {member.status === "active" && (
+                  <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">
+                    Aktiv
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Right: actions */}
+        <div className="flex items-center gap-2 flex-wrap sm:shrink-0 pl-12 sm:pl-0">
           <Button variant="outline" size="sm" asChild>
             <a href={`/api/members/${member.id}/contract`} target="_blank" rel="noopener noreferrer">
-              <FileText className="w-4 h-4 mr-2" />Vertrag
+              <FileText className="w-4 h-4 mr-2" />
+              Vertrag
             </a>
           </Button>
-          <CancelMemberDialog
-            memberId={member.id}
-            memberName={`${member.first_name} ${member.last_name}`}
-            memberNumber={member.member_number}
-            currentStatus={member.status}
-            cancellationDate={member.cancellation_date}
-          />
+
+          {member.status === "cancelled" ? (
+            <>
+              <form action={revokeAction}>
+                <Button type="submit" variant="outline" size="sm" className="border-green-300 text-green-700 hover:bg-green-50">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Widerruf
+                </Button>
+              </form>
+              <CancelMemberDialog
+                memberId={member.id}
+                memberName={`${member.first_name} ${member.last_name}`}
+                memberNumber={member.member_number}
+                currentStatus={member.status}
+                cancellationDate={member.cancellation_date}
+              />
+            </>
+          ) : (
+            <CancelMemberDialog
+              memberId={member.id}
+              memberName={`${member.first_name} ${member.last_name}`}
+              memberNumber={member.member_number}
+              currentStatus={member.status}
+              cancellationDate={member.cancellation_date}
+            />
+          )}
+
+          <div className="w-px h-6 bg-border mx-1" />
+
           <form action={deleteAction}>
             <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive hover:text-destructive-foreground">
               <Trash2 className="w-4 h-4 mr-2" />

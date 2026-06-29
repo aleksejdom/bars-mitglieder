@@ -55,7 +55,7 @@ export function CancelMemberDialog({
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className={isCancelled ? "border-orange-300 text-orange-600 hover:bg-orange-50" : "border-orange-300 text-orange-600 hover:bg-orange-50"}
+        className="border-orange-300 text-orange-600 hover:bg-orange-50"
       >
         <XCircle className="w-4 h-4 mr-2" />
         {isCancelled ? "Kündigung bearbeiten" : "Kündigen"}

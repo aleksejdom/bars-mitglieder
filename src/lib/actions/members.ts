@@ -163,6 +163,31 @@ export async function cancelMember(id: string, formData: FormData) {
   );
 }
 
+export async function revokeCancellation(id: string) {
+  await requireAuth();
+  const member = await queryOne<{ billing_period: string }>(
+    "SELECT billing_period FROM members WHERE id=$1",
+    [id]
+  );
+  const billingPeriod = member?.billing_period || "monthly";
+
+  await query(
+    `UPDATE members SET
+      status = 'active',
+      cancellation_date = NULL,
+      subscription_paused = false,
+      auto_invoice_enabled = true,
+      subscription_paused_at = NULL,
+      next_invoice_date = $1,
+      updated_at = NOW()
+    WHERE id = $2`,
+    [nextInvoiceDate(billingPeriod), id]
+  );
+
+  revalidatePath("/members");
+  revalidatePath(`/members/${id}`);
+}
+
 export async function pauseSubscription(id: string) {
   await requireAuth();
   await query(
