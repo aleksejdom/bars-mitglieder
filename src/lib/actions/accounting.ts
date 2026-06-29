@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { sendInvoiceEmail } from "@/lib/actions/email";
+import { sendInvoiceEmailInternal } from "@/lib/actions/email";
 
 async function nextInvoiceNumber(type: string): Promise<string> {
   const prefix = type === "reminder" ? "MAN" : type === "final_reminder" ? "LMA" : "RE";
@@ -173,7 +173,7 @@ export async function generateDueInvoices(_?: FormData): Promise<void> {
         [invoiceNumber, member.id, periodStart, periodEnd, amount, dueDate.toISOString().slice(0, 10)]
       );
       if (newInv) {
-        await sendInvoiceEmail(newInv.id).catch((e) =>
+        await sendInvoiceEmailInternal(newInv.id).catch((e) =>
           console.error(`[email] Rechnung ${invoiceNumber} senden fehlgeschlagen:`, e)
         );
       }
@@ -228,7 +228,7 @@ export async function createReminder(invoiceId: string, _?: FormData): Promise<v
   revalidatePath("/accounting/invoices");
 
   if (newInvoice) {
-    await sendInvoiceEmail(newInvoice.id).catch((e) =>
+    await sendInvoiceEmailInternal(newInvoice.id).catch((e) =>
       console.error("[email] Mahnung senden fehlgeschlagen:", e)
     );
   }

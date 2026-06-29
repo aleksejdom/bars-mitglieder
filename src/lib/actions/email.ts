@@ -38,7 +38,10 @@ const typeTitle: Record<string, string> = {
   final_reminder: "Letzte Mahnung",
 };
 
-export async function sendInvoiceEmail(invoiceId: string, _?: FormData): Promise<void> {
+export async function sendInvoiceEmail(
+  invoiceId: string,
+  _?: FormData
+): Promise<{ error?: string }> {
   await requireAuth();
 
   const inv = await queryOne<InvoiceEmailData>(
@@ -51,8 +54,8 @@ export async function sendInvoiceEmail(invoiceId: string, _?: FormData): Promise
     [invoiceId]
   );
 
-  if (!inv) throw new Error("Rechnung nicht gefunden");
-  if (!inv.email) throw new Error(`Dieses Mitglied hat keine E-Mail-Adresse hinterlegt`);
+  if (!inv) return { error: "Rechnung nicht gefunden" };
+  if (!inv.email) return { error: "Dieses Mitglied hat keine E-Mail-Adresse hinterlegt" };
 
   const club = await getClubSettings();
   const title = typeTitle[inv.type] || "Rechnung";
@@ -107,6 +110,91 @@ export async function sendInvoiceEmail(invoiceId: string, _?: FormData): Promise
     <div class="footer">${club.club_name}${club.address ? ` · ${club.address}` : ""}${club.city ? ` · ${club.postal_code || ""} ${club.city}` : ""}${club.email ? ` · ${club.email}` : ""}</div>
   `);
 
+  try {
+    await sendEmail({
+      to: inv.email,
+      subject: `${title} ${inv.invoice_number} — ${club.club_name}`,
+      html,
+      replyTo: club.email || undefined,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[email] sendInvoiceEmail failed:", msg);
+    return { error: `E-Mail konnte nicht gesendet werden: ${msg}` };
+  }
+
+  await query(
+    "UPDATE invoices SET email_sent_at = NOW() WHERE id = $1",
+    [invoiceId]
+  );
+
+  revalidatePath("/accounting/invoices");
+  return {};
+}
+
+// Internal variant called from within other server actions (no auth check needed)
+export async function sendInvoiceEmailInternal(invoiceId: string): Promise<void> {
+  const inv = await queryOne<InvoiceEmailData>(
+    `SELECT i.id, i.invoice_number, i.type, i.amount, i.due_date,
+            i.period_start, i.period_end,
+            COALESCE(m.billing_period, 'monthly') as billing_period,
+            m.first_name, m.last_name, m.email, m.member_number
+     FROM invoices i JOIN members m ON i.member_id = m.id
+     WHERE i.id = $1`,
+    [invoiceId]
+  );
+
+  if (!inv?.email) return;
+
+  const club = await getClubSettings();
+  const title = typeTitle[inv.type] || "Rechnung";
+  const billingLabel = inv.billing_period === "yearly" ? "Jahresbeitrag" : "Monatsbeitrag";
+
+  const periodLine =
+    inv.period_start && inv.period_end
+      ? `${fmt(inv.period_start)} – ${fmt(inv.period_end)}`
+      : inv.period_start
+      ? `ab ${fmt(inv.period_start)}`
+      : billingLabel;
+
+  const introText =
+    inv.type === "invoice"
+      ? "anbei erhalten Sie Ihre Rechnung für den Mitgliedsbeitrag."
+      : inv.type === "reminder"
+      ? "wir möchten Sie freundlich daran erinnern, dass folgende Zahlung noch aussteht."
+      : "wir weisen Sie letztmalig auf den ausstehenden Betrag hin. Bitte begleichen Sie diesen umgehend, um weitere Maßnahmen zu vermeiden.";
+
+  const html = emailWrapper(`
+    <div class="head">
+      <h1>${title} — ${club.club_name}</h1>
+      <p>${inv.invoice_number} · Fällig: ${fmt(inv.due_date)}</p>
+    </div>
+    <div class="body">
+      <p>Sehr geehrte(r) ${inv.first_name} ${inv.last_name},</p>
+      <p>${introText}</p>
+      <div class="info-box">
+        <div class="info-row"><span class="info-label">Rechnungsnummer:</span><span>${inv.invoice_number}</span></div>
+        <div class="info-row"><span class="info-label">Mitgliedsnummer:</span><span>${inv.member_number}</span></div>
+        <div class="info-row"><span class="info-label">Leistungszeitraum:</span><span>${periodLine}</span></div>
+        <div class="info-row"><span class="info-label">Fälligkeitsdatum:</span><span>${fmt(inv.due_date)}</span></div>
+      </div>
+      <div class="highlight">Gesamtbetrag: ${money(inv.amount)}</div>
+      ${club.iban ? `
+      <div class="info-box">
+        <p style="font-weight:bold;margin-bottom:8px">Zahlungsinformationen</p>
+        <div class="info-row"><span class="info-label">Kontoinhaber:</span><span>${club.club_name}</span></div>
+        <div class="info-row"><span class="info-label">IBAN:</span><span>${club.iban}</span></div>
+        ${club.bic ? `<div class="info-row"><span class="info-label">BIC:</span><span>${club.bic}</span></div>` : ""}
+        ${club.bank_name ? `<div class="info-row"><span class="info-label">Kreditinstitut:</span><span>${club.bank_name}</span></div>` : ""}
+        <p style="margin-top:8px;font-size:12px;color:#64748b">Bitte geben Sie die Rechnungsnummer <strong>${inv.invoice_number}</strong> als Verwendungszweck an.</p>
+      </div>
+      ` : ""}
+      <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+      <p>Mit sportlichen Grüßen<br><strong>${club.club_name}</strong></p>
+    </div>
+    <div class="footer">${club.club_name}${club.address ? ` · ${club.address}` : ""}${club.city ? ` · ${club.postal_code || ""} ${club.city}` : ""}${club.email ? ` · ${club.email}` : ""}</div>
+  `);
+
   await sendEmail({
     to: inv.email,
     subject: `${title} ${inv.invoice_number} — ${club.club_name}`,
@@ -114,11 +202,7 @@ export async function sendInvoiceEmail(invoiceId: string, _?: FormData): Promise
     replyTo: club.email || undefined,
   });
 
-  await query(
-    "UPDATE invoices SET email_sent_at = NOW() WHERE id = $1",
-    [invoiceId]
-  );
-
+  await query("UPDATE invoices SET email_sent_at = NOW() WHERE id = $1", [invoiceId]);
   revalidatePath("/accounting/invoices");
 }
 

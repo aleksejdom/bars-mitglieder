@@ -23,7 +23,7 @@ type InvoiceActionsProps = {
   overdueAction: () => Promise<void>;
   deleteAction: () => Promise<void>;
   reminderAction: () => Promise<void>;
-  sendAction: () => Promise<void>;
+  sendAction: () => Promise<{ error?: string }>;
 };
 
 export function InvoiceActions({
@@ -101,13 +101,23 @@ export function InvoiceActions({
       <button
         type="button"
         title={emailSentAt ? "E-Mail erneut senden" : "E-Mail senden"}
-        onClick={() =>
-          run(
-            sendAction,
-            `E-Mail für ${invoiceNumber} erfolgreich gesendet`,
-            "E-Mail konnte nicht gesendet werden"
-          )
-        }
+        onClick={() => {
+          startTransition(async () => {
+            try {
+              const result = await sendAction();
+              if (result?.error) {
+                toast.error("E-Mail konnte nicht gesendet werden", {
+                  description: result.error,
+                });
+              } else {
+                toast.success(`E-Mail für ${invoiceNumber} erfolgreich gesendet`);
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              toast.error("E-Mail konnte nicht gesendet werden", { description: msg });
+            }
+          });
+        }}
         className="p-1.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors"
       >
         {emailSentAt ? (
