@@ -43,9 +43,8 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function markInvoicePaid(id: string, _formData?: FormData) {
-  const paidDate: string | undefined = undefined;
   await requireAuth();
-  const date = paidDate || new Date().toISOString().slice(0, 10);
+  const date = new Date().toISOString().slice(0, 10);
 
   const invoice = await queryOne<{ member_id: string; amount: number }>(
     "SELECT member_id, amount FROM invoices WHERE id=$1",
@@ -53,14 +52,46 @@ export async function markInvoicePaid(id: string, _formData?: FormData) {
   );
   if (!invoice) return;
 
-  await query(
-    "UPDATE invoices SET status='paid', paid_date=$1, updated_at=NOW() WHERE id=$2",
-    [date, id]
+  // Walk up to the root invoice, then mark the entire family (root + all
+  // descendants) as paid so Rechnung ↔ Mahnung stay in sync.
+  const related = await query<{ id: string; status: string }>(
+    `WITH RECURSIVE
+       ancestors AS (
+         SELECT id, parent_invoice_id FROM invoices WHERE id = $1
+         UNION ALL
+         SELECT i.id, i.parent_invoice_id
+         FROM invoices i JOIN ancestors a ON i.id = a.parent_invoice_id
+       ),
+       root AS (SELECT id FROM ancestors WHERE parent_invoice_id IS NULL),
+       family AS (
+         SELECT id FROM root
+         UNION ALL
+         SELECT i.id FROM invoices i JOIN family f ON i.parent_invoice_id = f.id
+       )
+     SELECT inv.id, inv.status FROM invoices inv
+     JOIN family f ON inv.id = f.id`,
+    [id]
   );
-  await query(
-    `INSERT INTO payments (invoice_id, member_id, amount, payment_date) VALUES ($1,$2,$3,$4)`,
-    [id, invoice.member_id, invoice.amount, date]
-  );
+
+  for (const rel of related) {
+    await query(
+      "UPDATE invoices SET status='paid', paid_date=$1, updated_at=NOW() WHERE id=$2",
+      [date, rel.id]
+    );
+    // Only create a payment entry for invoices not already paid
+    if (rel.status !== "paid") {
+      const inv = await queryOne<{ member_id: string; amount: number }>(
+        "SELECT member_id, amount FROM invoices WHERE id=$1",
+        [rel.id]
+      );
+      if (inv) {
+        await query(
+          `INSERT INTO payments (invoice_id, member_id, amount, payment_date) VALUES ($1,$2,$3,$4)`,
+          [rel.id, inv.member_id, inv.amount, date]
+        );
+      }
+    }
+  }
 
   revalidatePath("/accounting");
   revalidatePath("/accounting/invoices");
