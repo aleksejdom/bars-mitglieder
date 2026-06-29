@@ -42,17 +42,28 @@ export async function sendInvoiceEmail(
   invoiceId: string,
   _?: FormData
 ): Promise<{ error?: string }> {
-  await requireAuth();
+  try {
+    await requireAuth();
+  } catch {
+    return { error: "Nicht authentifiziert — bitte Seite neu laden und erneut anmelden" };
+  }
 
-  const inv = await queryOne<InvoiceEmailData>(
-    `SELECT i.id, i.invoice_number, i.type, i.amount, i.due_date,
-            i.period_start, i.period_end,
-            COALESCE(m.billing_period, 'monthly') as billing_period,
-            m.first_name, m.last_name, m.email, m.member_number
-     FROM invoices i JOIN members m ON i.member_id = m.id
-     WHERE i.id = $1`,
-    [invoiceId]
-  );
+  let inv: InvoiceEmailData | null = null;
+  try {
+    inv = await queryOne<InvoiceEmailData>(
+      `SELECT i.id, i.invoice_number, i.type, i.amount, i.due_date,
+              i.period_start, i.period_end,
+              COALESCE(m.billing_period, 'monthly') as billing_period,
+              m.first_name, m.last_name, m.email, m.member_number
+       FROM invoices i JOIN members m ON i.member_id = m.id
+       WHERE i.id = $1`,
+      [invoiceId]
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[email] DB query failed:", msg);
+    return { error: `Datenbankfehler: ${msg}` };
+  }
 
   if (!inv) return { error: "Rechnung nicht gefunden" };
   if (!inv.email) return { error: "Dieses Mitglied hat keine E-Mail-Adresse hinterlegt" };
@@ -119,16 +130,17 @@ export async function sendInvoiceEmail(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[email] sendInvoiceEmail failed:", msg);
-    return { error: `E-Mail konnte nicht gesendet werden: ${msg}` };
+    console.error("[email] SMTP send failed:", msg);
+    return { error: `SMTP-Fehler: ${msg}` };
   }
 
-  await query(
-    "UPDATE invoices SET email_sent_at = NOW() WHERE id = $1",
-    [invoiceId]
-  );
+  try {
+    await query("UPDATE invoices SET email_sent_at = NOW() WHERE id = $1", [invoiceId]);
+    revalidatePath("/accounting/invoices");
+  } catch {
+    // non-critical: email was sent, just update tracking silently
+  }
 
-  revalidatePath("/accounting/invoices");
   return {};
 }
 
