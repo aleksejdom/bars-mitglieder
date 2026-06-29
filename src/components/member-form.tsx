@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +78,7 @@ export function MemberForm({
   resumeAction?: () => Promise<void>;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isPausePending, startPauseTransition] = useTransition();
   const [subscriptionType, setSubscriptionType] = useState(
     member?.subscription_type || "individual"
   );
@@ -91,6 +93,9 @@ export function MemberForm({
   );
   const [autoInvoice, setAutoInvoice] = useState(
     member?.auto_invoice_enabled !== false
+  );
+  const [isPaused, setIsPaused] = useState(
+    member?.subscription_paused ?? false
   );
 
   const totalFee =
@@ -232,16 +237,26 @@ export function MemberForm({
       {/* Subscription / Sports */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Abo & Sportarten</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            Abo & Sportarten
+            {isPaused && (
+              <span className="text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                Pausiert
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
+
+          {/* Abo-Modell */}
+          <div className={`space-y-1.5 ${isPaused ? "opacity-40 pointer-events-none select-none" : ""}`}>
             <Label>Abo-Modell</Label>
             <input type="hidden" name="subscription_type" value={subscriptionType} />
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setSubscriptionType("individual")}
+                disabled={isPaused}
                 className={`rounded-lg border-2 p-4 text-left transition-all ${
                   subscriptionType === "individual"
                     ? "border-primary bg-primary/5"
@@ -249,9 +264,7 @@ export function MemberForm({
                 }`}
               >
                 <p className="font-medium text-sm">Einzelsportarten</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Sportarten einzeln wählen
-                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Sportarten einzeln wählen</p>
               </button>
               <button
                 type="button"
@@ -259,6 +272,7 @@ export function MemberForm({
                   setSubscriptionType("all_inclusive");
                   if (!selectedPlanId && plans[0]) setSelectedPlanId(plans[0].id);
                 }}
+                disabled={isPaused}
                 className={`rounded-lg border-2 p-4 text-left transition-all ${
                   subscriptionType === "all_inclusive"
                     ? "border-primary bg-primary/5"
@@ -266,20 +280,20 @@ export function MemberForm({
                 }`}
               >
                 <p className="font-medium text-sm">Komplett-Paket</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Alle Sportarten inklusive
-                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Alle Sportarten inklusive</p>
               </button>
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          {/* Zahlungsweise */}
+          <div className={`space-y-1.5 ${isPaused ? "opacity-40 pointer-events-none select-none" : ""}`}>
             <Label>Zahlungsweise</Label>
             <input type="hidden" name="billing_period" value={billingPeriod} />
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setBillingPeriod("monthly")}
+                disabled={isPaused}
                 className={`rounded-lg border-2 p-4 text-left transition-all ${
                   billingPeriod === "monthly"
                     ? "border-primary bg-primary/5"
@@ -292,6 +306,7 @@ export function MemberForm({
               <button
                 type="button"
                 onClick={() => setBillingPeriod("yearly")}
+                disabled={isPaused}
                 className={`rounded-lg border-2 p-4 text-left transition-all ${
                   billingPeriod === "yearly"
                     ? "border-primary bg-primary/5"
@@ -304,8 +319,9 @@ export function MemberForm({
             </div>
           </div>
 
+          {/* Sportarten */}
           {subscriptionType === "individual" && (
-            <div className="space-y-2">
+            <div className={`space-y-2 ${isPaused ? "opacity-40 pointer-events-none select-none" : ""}`}>
               <Label>Sportarten auswählen</Label>
               <div className="grid grid-cols-2 gap-2">
                 {sports.map((sport) => {
@@ -315,6 +331,7 @@ export function MemberForm({
                       key={sport.id}
                       type="button"
                       onClick={() => toggleSport(sport.id)}
+                      disabled={isPaused}
                       className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all ${
                         selected
                           ? "border-primary bg-primary/5"
@@ -331,9 +348,7 @@ export function MemberForm({
                           {Number(sport.monthly_fee).toFixed(2)} €/Monat
                         </p>
                       </div>
-                      {selected && (
-                        <Check className="w-4 h-4 text-primary shrink-0" />
-                      )}
+                      {selected && <Check className="w-4 h-4 text-primary shrink-0" />}
                     </button>
                   );
                 })}
@@ -346,15 +361,17 @@ export function MemberForm({
             </div>
           )}
 
+          {/* Komplett-Paket select */}
           {subscriptionType === "all_inclusive" && (
-            <div className="space-y-2">
+            <div className={`space-y-2 ${isPaused ? "opacity-40 pointer-events-none select-none" : ""}`}>
               <Label htmlFor="plan_id">Komplett-Paket</Label>
               <select
                 id="plan_id"
                 name="plan_id"
                 value={selectedPlanId}
                 onChange={(e) => setSelectedPlanId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                disabled={isPaused}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
               >
                 <option value="">Paket auswählen...</option>
                 {plans.map((p) => (
@@ -366,8 +383,9 @@ export function MemberForm({
             </div>
           )}
 
+          {/* Beitrag summary */}
           {(selectedSports.length > 0 || subscriptionType === "all_inclusive") && (
-            <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+            <div className={`flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3 ${isPaused ? "opacity-40" : ""}`}>
               <span className="text-sm font-medium">
                 {billingPeriod === "yearly" ? "Jährlicher Beitrag" : "Monatlicher Beitrag"}
               </span>
@@ -380,80 +398,95 @@ export function MemberForm({
             </div>
           )}
 
-          {/* Auto invoice toggle */}
-          <input type="hidden" name="auto_invoice_enabled" value={autoInvoice ? "true" : "false"} />
+          {/* Auto-invoice toggle */}
+          <input type="hidden" name="auto_invoice_enabled" value={autoInvoice && !isPaused ? "true" : "false"} />
           <div
-            className="flex items-center justify-between rounded-lg border border-border px-4 py-3 cursor-pointer"
-            onClick={() => setAutoInvoice((v) => !v)}
+            className={`flex items-center justify-between rounded-lg border border-border px-4 py-3 transition-opacity ${
+              isPaused ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+            }`}
+            onClick={() => !isPaused && setAutoInvoice((v) => !v)}
           >
             <div>
               <p className="text-sm font-medium">Automatische Rechnungserstellung</p>
               <p className="text-xs text-muted-foreground">
-                Rechnung wird automatisch {billingPeriod === "yearly" ? "jährlich" : "monatlich"} erstellt
+                {isPaused
+                  ? "Deaktiviert — Abo ist pausiert"
+                  : `Rechnung wird automatisch ${billingPeriod === "yearly" ? "jährlich" : "monatlich"} erstellt`}
               </p>
             </div>
             <div
               className={`w-10 h-6 rounded-full transition-colors flex items-center ${
-                autoInvoice ? "bg-primary" : "bg-muted"
+                autoInvoice && !isPaused ? "bg-primary" : "bg-muted"
               }`}
             >
               <div
                 className={`w-4 h-4 rounded-full bg-white mx-1 transition-transform ${
-                  autoInvoice ? "translate-x-4" : "translate-x-0"
+                  autoInvoice && !isPaused ? "translate-x-4" : "translate-x-0"
                 }`}
               />
             </div>
           </div>
 
-          {/* Subscription pause/resume — only for existing members */}
+          {/* Abo pause / resume */}
           {member?.id && (pauseAction || resumeAction) && (
             <div
               className={`rounded-lg border px-4 py-3 flex items-center justify-between gap-4 ${
-                member.subscription_paused
-                  ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20"
-                  : "border-destructive/40"
+                isPaused
+                  ? "border-amber-300 bg-amber-50"
+                  : "border-destructive/30 bg-destructive/5"
               }`}
             >
               <div>
                 <p className="text-sm font-medium">
-                  {member.subscription_paused ? "Abo ist pausiert" : "Abo pausieren"}
+                  {isPaused ? "Abo ist pausiert" : "Abo pausieren"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {member.subscription_paused
+                  {isPaused
                     ? "Keine Rechnungen bis das Abo fortgesetzt wird"
                     : "Stoppt alle zukünftigen Abbuchungen und Rechnungen"}
                 </p>
               </div>
-              {member.subscription_paused ? (
+              {isPaused ? (
                 resumeAction && (
-                  <form action={resumeAction}>
-                    <button
-                      type="submit"
-                      className="flex items-center gap-1.5 text-sm font-medium text-green-700 border border-green-600 rounded-md px-3 py-1.5 hover:bg-green-50 transition-colors whitespace-nowrap"
-                    >
-                      <PlayCircle className="w-4 h-4" />
-                      Abo fortsetzen
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    disabled={isPausePending}
+                    onClick={() =>
+                      startPauseTransition(async () => {
+                        await resumeAction();
+                        setIsPaused(false);
+                        setAutoInvoice(true);
+                        toast.success("Abo wurde fortgesetzt", {
+                          description: "Automatische Rechnungserstellung ist wieder aktiv.",
+                        });
+                      })
+                    }
+                    className="flex items-center gap-1.5 text-sm font-medium text-green-700 border border-green-500 rounded-md px-3 py-1.5 hover:bg-green-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    {isPausePending ? "..." : "Abo fortsetzen"}
+                  </button>
                 )
               ) : (
                 pauseAction && (
-                  <form
-                    action={pauseAction}
-                    onSubmit={(e) => {
-                      if (!confirm("Abo wirklich stoppen? Alle zukünftigen Rechnungen werden pausiert.")) {
-                        e.preventDefault();
-                      }
-                    }}
+                  <button
+                    type="button"
+                    disabled={isPausePending}
+                    onClick={() =>
+                      startPauseTransition(async () => {
+                        await pauseAction();
+                        setIsPaused(true);
+                        setAutoInvoice(false);
+                        toast.warning("Abo wurde gestoppt", {
+                          description: "Alle zukünftigen Rechnungen sind pausiert.",
+                        });
+                      })
+                    }
+                    className="flex items-center gap-1.5 text-sm font-medium text-destructive border border-destructive/50 rounded-md px-3 py-1.5 hover:bg-destructive/10 transition-colors whitespace-nowrap disabled:opacity-50"
                   >
-                    <button
-                      type="submit"
-                      className="flex items-center gap-1.5 text-sm font-medium text-destructive border border-destructive/60 rounded-md px-3 py-1.5 hover:bg-destructive/5 transition-colors whitespace-nowrap"
-                    >
-                      <PauseCircle className="w-4 h-4" />
-                      Abo stoppen
-                    </button>
-                  </form>
+                    <PauseCircle className="w-4 h-4" />
+                    {isPausePending ? "..." : "Abo stoppen"}
+                  </button>
                 )
               )}
             </div>
