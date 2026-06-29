@@ -35,6 +35,8 @@ async function ensureSchema(): Promise<void> {
     )
   `);
   await run(`INSERT INTO club_settings (id) VALUES (1) ON CONFLICT DO NOTHING`);
+  await run(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS parent_invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL`);
+  await run(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ`);
 }
 
 // Run once on startup; all query functions await this before executing

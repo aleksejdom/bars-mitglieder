@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import { sendContractEmail, sendCancellationEmail } from "@/lib/actions/email";
 
 async function nextMemberNumber(): Promise<string> {
   const result = await queryOne<{ member_number: string }>(
@@ -77,6 +78,9 @@ export async function createMember(formData: FormData) {
   }
 
   revalidatePath("/members");
+  await sendContractEmail(member.id).catch((e) =>
+    console.error("[email] Vertrag senden fehlgeschlagen:", e)
+  );
   redirect(`/members/${member.id}`);
 }
 
@@ -154,6 +158,9 @@ export async function cancelMember(id: string, formData: FormData) {
 
   revalidatePath("/members");
   revalidatePath(`/members/${id}`);
+  await sendCancellationEmail(id).catch((e) =>
+    console.error("[email] Kündigung senden fehlgeschlagen:", e)
+  );
 }
 
 export async function pauseSubscription(id: string) {

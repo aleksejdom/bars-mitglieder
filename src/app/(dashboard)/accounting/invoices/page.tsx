@@ -10,8 +10,10 @@ import {
   deleteInvoice,
   createInvoice,
   generateDueInvoices,
+  createReminder,
 } from "@/lib/actions/accounting";
-import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download, RefreshCw } from "lucide-react";
+import { sendInvoiceEmail } from "@/lib/actions/email";
+import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download, RefreshCw, Bell, Mail, MailCheck } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -25,6 +27,8 @@ type Invoice = {
   due_date: string;
   paid_date: string;
   created_at: string;
+  email_sent_at: string | null;
+  parent_invoice_number: string | null;
 };
 
 const typeLabel: Record<string, string> = {
@@ -52,8 +56,12 @@ export default async function InvoicesPage({
   const invoices = await query<Invoice>(`
     SELECT i.id, i.invoice_number, i.type, i.member_id,
            m.first_name, m.last_name, i.amount, i.status,
-           i.due_date, i.paid_date, i.created_at
-    FROM invoices i JOIN members m ON i.member_id=m.id
+           i.due_date, i.paid_date, i.created_at,
+           i.email_sent_at,
+           pi.invoice_number as parent_invoice_number
+    FROM invoices i
+    JOIN members m ON i.member_id=m.id
+    LEFT JOIN invoices pi ON i.parent_invoice_id = pi.id
     WHERE
       ($1 = '' OR i.status=$1)
       AND ($2 = '' OR i.type=$2)
@@ -225,13 +233,14 @@ export default async function InvoicesPage({
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Betrag</th>
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Fällig</th>
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Status</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">E-Mail</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {invoices.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
                       Keine Rechnungen gefunden
                     </td>
                   </tr>
@@ -241,11 +250,18 @@ export default async function InvoicesPage({
                   const paidAction = markInvoicePaid.bind(null, inv.id);
                   const overdueAction = markInvoiceOverdue.bind(null, inv.id);
                   const deleteAction = deleteInvoice.bind(null, inv.id);
+                  const reminderAction = createReminder.bind(null, inv.id);
+                  const sendAction = sendInvoiceEmail.bind(null, inv.id);
 
                   return (
                     <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
                         {inv.invoice_number}
+                        {inv.parent_invoice_number && (
+                          <div className="text-muted-foreground/60 mt-0.5">
+                            ↳ {inv.parent_invoice_number}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <span className="text-xs">
@@ -268,6 +284,19 @@ export default async function InvoicesPage({
                       </td>
                       <td className="px-5 py-3">
                         <Badge variant={s.variant}>{s.label}</Badge>
+                      </td>
+                      <td className="px-5 py-3">
+                        {inv.email_sent_at ? (
+                          <span
+                            title={`Gesendet: ${formatDate(inv.email_sent_at)}`}
+                            className="inline-flex items-center gap-1 text-xs text-green-600"
+                          >
+                            <MailCheck className="w-3.5 h-3.5" />
+                            {formatDate(inv.email_sent_at)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1 justify-end">
@@ -293,6 +322,26 @@ export default async function InvoicesPage({
                               </button>
                             </form>
                           )}
+                          {inv.status !== "paid" && inv.status !== "cancelled" && inv.type !== "final_reminder" && (
+                            <form action={reminderAction}>
+                              <button
+                                type="submit"
+                                title={inv.type === "reminder" ? "Letzte Mahnung erstellen" : "Mahnung erstellen"}
+                                className="p-1.5 rounded hover:bg-orange-100 hover:text-orange-700 transition-colors"
+                              >
+                                <Bell className="w-4 h-4" />
+                              </button>
+                            </form>
+                          )}
+                          <form action={sendAction}>
+                            <button
+                              type="submit"
+                              title={inv.email_sent_at ? "E-Mail erneut senden" : "E-Mail senden"}
+                              className="p-1.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                          </form>
                           <form action={deleteAction}>
                             <button
                               type="submit"

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { query, queryOne } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import { sendInvoiceEmail } from "@/lib/actions/email";
 
 async function nextInvoiceNumber(type: string): Promise<string> {
   const prefix = type === "reminder" ? "MAN" : type === "final_reminder" ? "LMA" : "RE";
@@ -165,11 +166,17 @@ export async function generateDueInvoices(_?: FormData): Promise<void> {
       const invoiceNumber = await nextInvoiceNumber("invoice");
       const dueDate = new Date(periodStartDate);
       dueDate.setDate(dueDate.getDate() + 14);
-      await query(
+      const [newInv] = await query<{ id: string }>(
         `INSERT INTO invoices (invoice_number, member_id, type, period_start, period_end, amount, status, due_date)
-         VALUES ($1,$2,'invoice',$3,$4,$5,'pending',$6)`,
+         VALUES ($1,$2,'invoice',$3,$4,$5,'pending',$6)
+         RETURNING id`,
         [invoiceNumber, member.id, periodStart, periodEnd, amount, dueDate.toISOString().slice(0, 10)]
       );
+      if (newInv) {
+        await sendInvoiceEmail(newInv.id).catch((e) =>
+          console.error(`[email] Rechnung ${invoiceNumber} senden fehlgeschlagen:`, e)
+        );
+      }
       created++;
     }
 
@@ -178,6 +185,53 @@ export async function generateDueInvoices(_?: FormData): Promise<void> {
 
   revalidatePath("/accounting/invoices");
   console.log(`[auto-invoice] created=${created} skipped=${skipped}`);
+}
+
+export async function createReminder(invoiceId: string, _?: FormData): Promise<void> {
+  await requireAuth();
+
+  const original = await queryOne<{
+    member_id: string;
+    amount: number;
+    type: string;
+  }>("SELECT member_id, amount, type FROM invoices WHERE id=$1", [invoiceId]);
+
+  if (!original) return;
+
+  // Escalate: invoice → reminder → final_reminder
+  const nextType =
+    original.type === "final_reminder"
+      ? "final_reminder"
+      : original.type === "reminder"
+      ? "final_reminder"
+      : "reminder";
+
+  const invoiceNumber = await nextInvoiceNumber(nextType);
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 14);
+
+  const [newInvoice] = await query<{ id: string }>(
+    `INSERT INTO invoices (invoice_number, member_id, type, amount, status, due_date, parent_invoice_id)
+     VALUES ($1,$2,$3,$4,'pending',$5,$6)
+     RETURNING id`,
+    [
+      invoiceNumber,
+      original.member_id,
+      nextType,
+      original.amount,
+      dueDate.toISOString().slice(0, 10),
+      invoiceId,
+    ]
+  );
+
+  revalidatePath("/accounting");
+  revalidatePath("/accounting/invoices");
+
+  if (newInvoice) {
+    await sendInvoiceEmail(newInvoice.id).catch((e) =>
+      console.error("[email] Mahnung senden fehlgeschlagen:", e)
+    );
+  }
 }
 
 export async function generateMonthlyInvoices(formData: FormData): Promise<void> {
