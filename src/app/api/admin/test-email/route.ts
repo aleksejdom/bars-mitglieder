@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 
+const SETUP_SECRET = process.env.SETUP_SECRET ?? "";
+
 export async function GET(req: NextRequest) {
-  try {
-    await requireAuth();
-  } catch {
+  // Accept either a valid session cookie or the x-setup-secret header
+  const secretHeader = req.headers.get("x-setup-secret");
+  const session = await getSession();
+
+  if (!session && (!SETUP_SECRET || secretHeader !== SETUP_SECRET)) {
     return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   }
 
