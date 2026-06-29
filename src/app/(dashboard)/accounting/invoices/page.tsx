@@ -13,7 +13,8 @@ import {
   createReminder,
 } from "@/lib/actions/accounting";
 import { sendInvoiceEmail } from "@/lib/actions/email";
-import { Plus, FileText, CheckCircle2, AlertTriangle, Trash2, Send, Download, RefreshCw, Bell, Mail, MailCheck } from "lucide-react";
+import { InvoiceActions, EmailStatusCell } from "@/components/invoice-actions";
+import { Plus, FileText, Send, RefreshCw } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -247,11 +248,6 @@ export default async function InvoicesPage({
                 )}
                 {invoices.map((inv) => {
                   const s = statusInfo[inv.status] || { label: inv.status, variant: "outline" as const };
-                  const paidAction = markInvoicePaid.bind(null, inv.id);
-                  const overdueAction = markInvoiceOverdue.bind(null, inv.id);
-                  const deleteAction = deleteInvoice.bind(null, inv.id);
-                  const reminderAction = createReminder.bind(null, inv.id);
-                  const sendAction = sendInvoiceEmail.bind(null, inv.id);
 
                   return (
                     <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
@@ -264,9 +260,7 @@ export default async function InvoicesPage({
                         )}
                       </td>
                       <td className="px-5 py-3">
-                        <span className="text-xs">
-                          {typeLabel[inv.type] || inv.type}
-                        </span>
+                        <span className="text-xs">{typeLabel[inv.type] || inv.type}</span>
                       </td>
                       <td className="px-5 py-3 font-medium">
                         {inv.first_name} {inv.last_name}
@@ -286,81 +280,21 @@ export default async function InvoicesPage({
                         <Badge variant={s.variant}>{s.label}</Badge>
                       </td>
                       <td className="px-5 py-3">
-                        {inv.email_sent_at ? (
-                          <span
-                            title={`Gesendet: ${formatDate(inv.email_sent_at)}`}
-                            className="inline-flex items-center gap-1 text-xs text-green-600"
-                          >
-                            <MailCheck className="w-3.5 h-3.5" />
-                            {formatDate(inv.email_sent_at)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50">—</span>
-                        )}
+                        <EmailStatusCell emailSentAt={inv.email_sent_at} />
                       </td>
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          {inv.status !== "paid" && (
-                            <form action={paidAction}>
-                              <button
-                                type="submit"
-                                title="Als bezahlt markieren"
-                                className="p-1.5 rounded hover:bg-green-100 hover:text-green-700 transition-colors"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                              </button>
-                            </form>
-                          )}
-                          {inv.status === "pending" && (
-                            <form action={overdueAction}>
-                              <button
-                                type="submit"
-                                title="Als überfällig markieren"
-                                className="p-1.5 rounded hover:bg-yellow-100 hover:text-yellow-700 transition-colors"
-                              >
-                                <AlertTriangle className="w-4 h-4" />
-                              </button>
-                            </form>
-                          )}
-                          {inv.status !== "paid" && inv.status !== "cancelled" && inv.type !== "final_reminder" && (
-                            <form action={reminderAction}>
-                              <button
-                                type="submit"
-                                title={inv.type === "reminder" ? "Letzte Mahnung erstellen" : "Mahnung erstellen"}
-                                className="p-1.5 rounded hover:bg-orange-100 hover:text-orange-700 transition-colors"
-                              >
-                                <Bell className="w-4 h-4" />
-                              </button>
-                            </form>
-                          )}
-                          <form action={sendAction}>
-                            <button
-                              type="submit"
-                              title={inv.email_sent_at ? "E-Mail erneut senden" : "E-Mail senden"}
-                              className="p-1.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </button>
-                          </form>
-                          <form action={deleteAction}>
-                            <button
-                              type="submit"
-                              title="Löschen"
-                              className="p-1.5 rounded hover:bg-red-100 hover:text-red-700 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </form>
-                          <a
-                            href={`/api/invoices/${inv.id}/pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="PDF herunterladen"
-                            className="p-1.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors inline-flex"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
-                        </div>
+                        <InvoiceActions
+                          invoiceId={inv.id}
+                          invoiceNumber={inv.invoice_number}
+                          type={inv.type}
+                          status={inv.status}
+                          emailSentAt={inv.email_sent_at}
+                          paidAction={markInvoicePaid.bind(null, inv.id)}
+                          overdueAction={markInvoiceOverdue.bind(null, inv.id)}
+                          deleteAction={deleteInvoice.bind(null, inv.id)}
+                          reminderAction={createReminder.bind(null, inv.id)}
+                          sendAction={sendInvoiceEmail.bind(null, inv.id)}
+                        />
                       </td>
                     </tr>
                   );

@@ -21,6 +21,18 @@ export async function GET(
     const { id } = await params;
     const key = memberPhotoKey(id);
 
+    // Stat first to get content-type, then stream
+    let contentType = "image/jpeg";
+    try {
+      const stat = await minioClient.statObject(BUCKET, key);
+      contentType =
+        stat.metaData?.["content-type"] ||
+        stat.metaData?.["Content-Type"] ||
+        "image/jpeg";
+    } catch {
+      // stat failed but we can still try to serve the object
+    }
+
     const stream = await minioClient.getObject(BUCKET, key);
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
@@ -28,16 +40,14 @@ export async function GET(
     }
     const data = Buffer.concat(chunks);
 
-    const stat = await minioClient.statObject(BUCKET, key);
-    const contentType = stat.metaData?.["content-type"] || "image/jpeg";
-
     return new NextResponse(data, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "private, max-age=3600",
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[photo GET]", err);
     return new NextResponse(null, { status: 404 });
   }
 }
@@ -80,7 +90,7 @@ export async function POST(
     const key = memberPhotoKey(id);
 
     await minioClient.putObject(BUCKET, key, buffer, buffer.length, {
-      "Content-Type": file.type,
+      "content-type": file.type,
     });
 
     const photoUrl = `/api/members/${id}/photo`;
@@ -91,9 +101,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, url: photoUrl });
   } catch (err) {
-    console.error("[photo POST]", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[photo POST]", msg);
     return NextResponse.json(
-      { error: "Foto konnte nicht hochgeladen werden" },
+      { error: `Foto konnte nicht hochgeladen werden: ${msg}` },
       { status: 500 }
     );
   }

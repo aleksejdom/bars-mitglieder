@@ -51,7 +51,8 @@ export async function sendInvoiceEmail(invoiceId: string, _?: FormData): Promise
     [invoiceId]
   );
 
-  if (!inv || !inv.email) return;
+  if (!inv) throw new Error("Rechnung nicht gefunden");
+  if (!inv.email) throw new Error(`Dieses Mitglied hat keine E-Mail-Adresse hinterlegt`);
 
   const club = await getClubSettings();
   const title = typeTitle[inv.type] || "Rechnung";
